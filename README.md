@@ -10,3 +10,4 @@
 | Arthur Lopes Laranjeira | @LaranjeiraArthur31 |
 | Igor Mastrangelo Domingos | @IgorMastrangelo |
 | Vitor Martins Furlan | @vtr1812 |
+
