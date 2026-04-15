@@ -1,30 +1,44 @@
 # Tracker-de-Séries
-'''mermaid
-  U([👤 Usuário]) --> FE[Frontend Web / App]
+```mermaid
+C4Context
+    title Arquitetura geral — Series Mood Tracker
 
-    FE --> AUTH[Autenticação\nJWT / OAuth]
-    FE --> TRACK[Módulo de Tracking\nAdicionar / avaliar séries]
-    FE --> MOOD[Módulo de Humor\nSelecionar estado emocional]
-    FE --> NOTIF[Central de Notificações]
+    Person(user, "Usuário", "Usa o app para rastrear séries e receber sugestões")
 
-    TRACK --> DB[(Banco de Dados\nPostgreSQL)]
-    AUTH  --> DB
-    MOOD  --> REC[Motor de Recomendação\nIA + filtros]
-    REC   --> DB
+    System(frontend, "Frontend Web / App", "Interface principal do usuário")
 
-    REC   --> EXT_AI[API de IA\nOpenAI / Claude]
-    TRACK --> EXT_TV[API de Séries\nTMDb / TVMaze]
+    System(auth, "Autenticação", "JWT / OAuth")
+    System(track, "Módulo de Tracking", "Adicionar e avaliar séries")
+    System(mood, "Módulo de Humor", "Selecionar estado emocional")
+    System(notif, "Central de Notificações", "Gerencia notificações do usuário")
+    System(rec, "Motor de Recomendação", "IA + filtros personalizados")
+    System(sched, "Scheduler", "Verificação periódica de novidades")
 
-    NOTIF --> SCHED[Scheduler\nVerificação periódica]
-    SCHED --> EXT_TV
-    SCHED --> DB
-    SCHED --> PUSH[Serviço de Push\nEmail / Web Push]
+    SystemDb(db, "Banco de Dados", "PostgreSQL")
 
-    style U fill:#e1f5ee,stroke:#0f6e56,color:#085041
-    style EXT_AI fill:#faeeda,stroke:#854f0b,color:#633806
-    style EXT_TV fill:#faeeda,stroke:#854f0b,color:#633806
-    style DB fill:#eeedfe,stroke:#534ab7,color:#3c3489
-    style PUSH fill:#e6f1fb,stroke:#185fa5,color:#0c447c
+    System_Ext(ext_ai, "API de IA", "OpenAI / Claude")
+    System_Ext(ext_tv, "API de Séries", "TMDb / TVMaze")
+    System_Ext(push, "Serviço de Push", "Email / Web Push")
+
+    Rel(user,    frontend, "Usa")
+    Rel(frontend, auth,    "Autentica via")
+    Rel(frontend, track,   "Registra séries")
+    Rel(frontend, mood,    "Informa humor")
+    Rel(frontend, notif,   "Visualiza notificações")
+
+    Rel(auth,  db,  "Lê e escreve")
+    Rel(track, db,  "Lê e escreve")
+    Rel(track, ext_tv, "Busca dados de séries")
+
+    Rel(mood, rec,    "Envia humor + histórico")
+    Rel(rec,  db,     "Consulta preferências")
+    Rel(rec,  ext_ai, "Gera sugestões via IA")
+
+    Rel(notif, sched,   "Dispara verificação")
+    Rel(sched, db,      "Consulta séries monitoradas")
+    Rel(sched, ext_tv,  "Verifica novos episódios")
+    Rel(sched, push,    "Envia notificações")
+```
 
 ## Sobre o Projeto
 **Projeto:** [Tracker de Séries]
