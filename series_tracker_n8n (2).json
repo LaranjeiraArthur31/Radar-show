@@ -1,0 +1,264 @@
+{
+  "name": "Series Tracker — Simplificado",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Encontre sua próxima série",
+        "formDescription": "Preencha suas preferências e receba sugestões personalizadas!",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Gênero favorito",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  { "option": "Drama" },
+                  { "option": "Thriller" },
+                  { "option": "Crime" },
+                  { "option": "Comédia" },
+                  { "option": "Sci-Fi" },
+                  { "option": "Horror" },
+                  { "option": "Ação" },
+                  { "option": "Mistério" },
+                  { "option": "Documentário" }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Duração máxima do episódio (minutos)",
+              "fieldType": "number",
+              "requiredField": false
+            },
+            {
+              "fieldLabel": "Número máximo de temporadas",
+              "fieldType": "number",
+              "requiredField": false
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "buttonLabel": "Buscar séries!"
+        }
+      },
+      "id": "node-form",
+      "name": "Form — Preferências",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [240, 300],
+      "webhookId": "series-tracker-form"
+    },
+    {
+      "parameters": {
+        "jsCode": "const genreMap = {\n  'drama': 18, 'thriller': 53, 'crime': 80,\n  'comedia': 35, 'comédia': 35, 'sci-fi': 10765,\n  'horror': 27, 'acao': 10759, 'ação': 10759,\n  'misterio': 9648, 'mistério': 9648,\n  'documentario': 99, 'documentário': 99\n};\n\nconst body = $input.item.json;\nconst genero = body['Gênero favorito'] || '';\nconst chave = genero.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');\nconst genreId = genreMap[chave] || 18;\n\nreturn [{ json: {\n  email: body['Email'],\n  genero,\n  genre_id: genreId,\n  runtime_max: parseInt(body['Duração máxima do episódio (minutos)']) || 60,\n  temp_max: parseInt(body['Número máximo de temporadas']) || 10\n}}];"
+      },
+      "id": "node-parse",
+      "name": "Preparar Filtros",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.themoviedb.org/3/discover/tv",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer COLE_SEU_TOKEN_TMDB_AQUI"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "with_genres", "value": "={{ $json.genre_id }}" },
+            { "name": "with_runtime.lte", "value": "={{ $json.runtime_max }}" },
+            { "name": "vote_average.gte", "value": "7" },
+            { "name": "sort_by", "value": "popularity.desc" },
+            { "name": "language", "value": "pt-BR" },
+            { "name": "page", "value": "1" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-tmdb",
+      "name": "TMDb — Buscar Séries",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.item.json.results || [];\nconst genero = $('Preparar Filtros').item.json.genero;\nconst email = $('Preparar Filtros').item.json.email;\n\nconst series = results.slice(0, 5).map(s => ({\n  id: s.id,\n  nome: s.name,\n  nota: s.vote_average?.toFixed(1),\n  estreia: s.first_air_date?.slice(0,4),\n  resumo: s.overview?.slice(0,180) || 'Sem descrição disponível.',\n  poster: s.poster_path ? `https://image.tmdb.org/t/p/w200${s.poster_path}` : null,\n  url: `https://www.themoviedb.org/tv/${s.id}`\n}));\n\nconst cards = series.map(s => `\n<div style=\"display:flex;gap:12px;padding:14px;border:1px solid #e5e5e5;border-radius:8px;margin-bottom:10px\">\n  ${s.poster ? `<img src=\"${s.poster}\" style=\"width:55px;height:80px;object-fit:cover;border-radius:5px;flex-shrink:0\">` : ''}\n  <div>\n    <strong style=\"font-size:15px;color:#1a1a2e\">${s.nome}</strong>\n    <span style=\"color:#888;font-size:12px;margin-left:6px\">${s.estreia || ''} · ⭐ ${s.nota}</span>\n    <p style=\"margin:5px 0 6px;font-size:13px;color:#444;line-height:1.5\">${s.resumo}</p>\n    <a href=\"${s.url}\" style=\"font-size:12px;color:#e94560;text-decoration:none\">Ver no TMDb →</a>\n  </div>\n</div>`).join('');\n\nconst html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head>\n<body style=\"font-family:Arial,sans-serif;max-width:600px;margin:40px auto;padding:0 16px\">\n  <h2 style=\"color:#1a1a2e\">Sugestões de ${genero}</h2>\n  <p style=\"color:#666;margin-bottom:20px\">Olá ${email.split('@')[0]}, encontramos ${series.length} séries para você!</p>\n  ${cards}\n  <p style=\"color:#bbb;font-size:12px;margin-top:24px\">Novidades serão enviadas para ${email}</p>\n</body></html>`;\n\nreturn [{ json: { html, series, email } }];"
+      },
+      "id": "node-format",
+      "name": "Formatar Resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SEU_GOOGLE_SHEET_ID_AQUI"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Monitoradas"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $json.email }}",
+            "series_ids": "={{ $json.series.map(s => s.id).join(',') }}",
+            "cadastrado_em": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "node-sheets",
+      "name": "Sheets — Salvar",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1120, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "triggerAtHour": 9, "triggerAtMinute": 0 }
+          ]
+        }
+      },
+      "id": "node-cron",
+      "name": "Cron — 9h Diário",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 560]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SEU_GOOGLE_SHEET_ID_AQUI"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Monitoradas"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "node-sheets-read",
+      "name": "Sheets — Ler Usuários",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [460, 560],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.themoviedb.org/3/tv/{{ $json.series_ids.split(',')[0].trim() }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer COLE_SEU_TOKEN_TMDB_AQUI"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "language", "value": "pt-BR" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-tmdb-check",
+      "name": "TMDb — Checar Novidades",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 560]
+    },
+    {
+      "parameters": {
+        "fromEmail": "tracker@seudominio.com",
+        "toEmail": "={{ $('Sheets — Ler Usuários').item.json.email }}",
+        "subject": "=Novidade em {{ $json.name }}!",
+        "emailType": "html",
+        "message": "=<body style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px'><h2>{{ $json.name }} tem novidades!</h2><p>O último episódio é: <strong>{{ $json.last_episode_to_air.name }}</strong> (T{{ $json.last_episode_to_air.season_number }}E{{ $json.last_episode_to_air.episode_number }})</p><p>{{ $json.last_episode_to_air.overview }}</p><a href='https://www.themoviedb.org/tv/{{ $json.id }}' style='background:#e94560;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none'>Ver no TMDb</a></body>",
+        "options": {}
+      },
+      "id": "node-email",
+      "name": "Email — Notificar",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [900, 560],
+      "credentials": {
+        "smtp": {
+          "id": "smtp-creds",
+          "name": "SMTP / Gmail"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Form — Preferências": {
+      "main": [[{ "node": "Preparar Filtros", "type": "main", "index": 0 }]]
+    },
+    "Preparar Filtros": {
+      "main": [[{ "node": "TMDb — Buscar Séries", "type": "main", "index": 0 }]]
+    },
+    "TMDb — Buscar Séries": {
+      "main": [[{ "node": "Formatar Resultado", "type": "main", "index": 0 }]]
+    },
+    "Formatar Resultado": {
+      "main": [[{ "node": "Sheets — Salvar", "type": "main", "index": 0 }]]
+    },
+    "Cron — 9h Diário": {
+      "main": [[{ "node": "Sheets — Ler Usuários", "type": "main", "index": 0 }]]
+    },
+    "Sheets — Ler Usuários": {
+      "main": [[{ "node": "TMDb — Checar Novidades", "type": "main", "index": 0 }]]
+    },
+    "TMDb — Checar Novidades": {
+      "main": [[{ "node": "Email — Notificar", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "tags": [{ "name": "series-tracker" }]
+}
