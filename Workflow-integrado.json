@@ -1,0 +1,174 @@
+{
+  "name": "Series Tracker — Simplificado",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Encontre sua próxima série",
+        "formDescription": "Preencha suas preferências e receba sugestões personalizadas!",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Gênero favorito",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Drama"
+                  },
+                  {
+                    "option": "Thriller"
+                  },
+                  {
+                    "option": "Crime"
+                  },
+                  {
+                    "option": "Comédia"
+                  },
+                  {
+                    "option": "Sci-Fi"
+                  },
+                  {
+                    "option": "Horror"
+                  },
+                  {
+                    "option": "Ação"
+                  },
+                  {
+                    "option": "Mistério"
+                  },
+                  {
+                    "option": "Documentário"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Duração máxima do episódio (minutos)",
+              "fieldType": "number"
+            },
+            {
+              "fieldLabel": "Número máximo de temporadas",
+              "fieldType": "number"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "buttonLabel": "Buscar séries!"
+        }
+      },
+      "id": "87c483a3-127d-4292-a29a-836eb0b1768e",
+      "name": "Form — Preferências",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "84fe6d45-2daa-4fac-9c5b-907d894894ba"
+    },
+    {
+      "parameters": {
+        "jsCode": "const genreMap = {\n  'drama': 18, 'thriller': 53, 'crime': 80,\n  'comedia': 35, 'comédia': 35, 'sci-fi': 10765,\n  'horror': 27, 'acao': 10759, 'ação': 10759,\n  'misterio': 9648, 'mistério': 9648,\n  'documentario': 99, 'documentário': 99\n};\n\nconst body = $input.item.json;\nconst genero = body['Gênero favorito'] || '';\nconst chave = genero.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');\nconst genreId = genreMap[chave] || 18;\n\nreturn [{ json: {\n  email: body['Email'],\n  genero,\n  genre_id: genreId,\n  runtime_max: parseInt(body['Duração máxima do episódio (minutos)']) || 60,\n  temp_max: parseInt(body['Número máximo de temporadas']) || 10\n}}];"
+      },
+      "id": "15f64fe0-d5b0-4d46-a64d-1c3d61f1c3d0",
+      "name": "Preparar Filtros",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3-flash-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3-flash-preview"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Você é um critico de series e filmes, e vai recomendar uma serie seguindo as preferencias do usuario previamente respondidas no formulario. com o nome da serie e sobre o que ela se trata",
+              "role": "model"
+            },
+            {
+              "content": "={{ $json.genero }}{{ $json.genre_id }}{{ $json.runtime_max }}{{ $json.temp_max }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {
+          "googleSearch": true
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        464,
+        16
+      ],
+      "id": "e7b6eee6-a544-47ba-a974-f8c332d10fa7",
+      "name": "Message a model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XWdukLtuz31aDPIY",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Form — Preferências": {
+      "main": [
+        [
+          {
+            "node": "Preparar Filtros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Filtros": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6f6aee50-350b-4d62-b2c7-7a5759d56344",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "19034e22bd3afb011d49c984c8895df9227601ad43ee39d9427b6b3ad3560f37"
+  },
+  "id": "Tsag9dRwFl1tIYRn",
+  "tags": [
+    {
+      "name": "series-tracker",
+      "id": "q2pshuMG3dlIPVUE",
+      "updatedAt": "2026-05-07T19:45:15.738Z",
+      "createdAt": "2026-05-07T19:45:15.738Z"
+    }
+  ]
+}
